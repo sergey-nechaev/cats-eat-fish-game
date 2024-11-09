@@ -2,18 +2,23 @@
   <style>
     body {
       margin: 0;
+      background-color: gray;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <script>
-    let platforms;
+    let lifeCount = 10;
     let player;
+    let player2;
+    let bots;
     let cursors;
+    let wasd;    
     let stars;
     let score = 0;
     let scoreText;
     let bombs;
     let gameOver = false;
+    let platforms=[];
 
     class GameScene extends Phaser.Scene {
       preload() {
@@ -21,46 +26,63 @@
         this.load.image('ground', 'assets/platform.png');
         this.load.image('star', 'assets/fish.png');
         this.load.image('bomb', 'assets/bomb.png');
+
+        this.load.image('terrainTile', 'assets/tile1.png'); 
+
         this.load.spritesheet('fishes', 'assets/PixelFishes.png', {
           frameWidth: 32, frameHeight: 32
         });
 
-        this.load.spritesheet('dude', 'assets/dude.png', {
-          frameWidth: 32, frameHeight: 48
-        });
         this.load.spritesheet('catWalk', 'assets/cat-walk.png', {
             frameWidth: 61,
             frameHeight: 50
         });
       }
+      createPlatform(x, y, width, height) {
+          const platform = this.add.tileSprite(x, y, width, height, 'terrainTile');
+          platform.setOrigin(0, 0);
+          this.physics.add.existing(platform, true);
+          platforms.push(platform);
+      }
+      addPlatforms(){
+        
+        this.createPlatform(0, 750, 1024, 40);
+        this.createPlatform(100, 300, 200, 40);
+        this.createPlatform(500, 450, 200, 40);
+        this.createPlatform(300, 600, 200, 40);
+
+        platforms.forEach(platform => {
+          this.physics.add.collider(player, platform);
+          this.physics.add.collider(player2, platform);
+          this.physics.add.collider(bombs, platform);
+          this.physics.add.collider(stars, platform);
+          this.physics.add.collider(bots, platform);
+        });
+
+      }
+      addBots() {
+        bots = this.physics.add.group();
+
+        let bot = bots.create(500, 450, 'catWalk');
+        bot.setBounce(0.2);
+        bot.setCollideWorldBounds(true);
+        bot.setTint(0x00FF00);
+
+        this.physics.add.overlap(bot, stars, this.collectStar, null, this);
+      }
+
       create() {
-        // Sky
-        this.add.image(400, 300, 'sky');
-        // Platforms
-        platforms = this.physics.add.staticGroup();
-        platforms.create(400, 568, 'ground').setScale(2).refreshBody();
-        platforms.create(600, 400, 'ground');
-        platforms.create(50, 250, 'ground');
-        platforms.create(750, 220, 'ground');
-        
-        
-        // Player
+        this.add.image(0, 0, 'sky').setOrigin(0,0);
+
         player = this.physics.add.sprite(100, 450, 'catWalk');
         player.setBounce(0.2);
         player.setCollideWorldBounds(true);
+        player.setTint(0x926EAE);
 
+        player2 = this.physics.add.sprite(10, 450, 'catWalk');
+        player2.setBounce(0.2);
+        player2.setCollideWorldBounds(true);
 
-        // this.anims.create({
-        //     key: 'walk',
-        //     frames: this.anims.generateFrameNumbers('catWalk', { start: 0, end: 6 }),
-        //     frameRate: 10,
-        //     repeat: -1
-        // });
-
-        // player.play('walk');
-
-        // Player animations
-        
         this.anims.create({
           key: 'left',
           frames: this.anims.generateFrameNumbers('catWalk', {start: 0, end: 6}),
@@ -78,17 +100,22 @@
           frameRate: 10,
           repeat: -1,
         });
+        
 
-        // Collision player-platforms
-        // player.body.setGravityY(300);
-        this.physics.add.collider(player, platforms);
         // Keyboard handling object
+
         cursors = this.input.keyboard.createCursorKeys();
-        // Stars
+        wasd = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.W,
+            left: Phaser.Input.Keyboard.KeyCodes.A,
+            down: Phaser.Input.Keyboard.KeyCodes.S,
+            right: Phaser.Input.Keyboard.KeyCodes.D
+        });
+
         stars = this.physics.add.group({
           key: 'fishes',
-          repeat: 11,
-          setXY: {x: 12, y: 0, stepX: 70},
+          repeat: 5,
+          setXY: {x: 12, y: 0, stepX: 100},
         });
    
         stars.children.iterate((child) => {
@@ -96,23 +123,30 @@
           child.setFrame(randomFrame);
           child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
         });
-        // Collision stars-platforms
-        this.physics.add.collider(stars, platforms);
-        // Overlapping player-stars
+        
         this.physics.add.overlap(player, stars, this.collectStar, null, this);
+        this.physics.add.overlap(player2, stars, this.collectStar, null, this);
+
         // Score
-        scoreText = this.add.text(16, 16, 'Score: 0', {
+        scoreText = this.add.text(16, 16, 'Score: 0 | Life: ' + lifeCount, {
           fontSize: '32px',
-          fill: '#000',
+          fill: '#FFF',
         });
+
         // Bombs
         bombs = this.physics.add.group();
-        this.physics.add.collider(bombs, platforms);
         this.physics.add.collider(player, bombs, this.hitBomb, null, this);
+        this.physics.add.collider(player2, bombs, this.hitBomb, null, this);
+        
+        this.addBots();
+        this.addPlatforms();
+
+
       }
       update() {
         if(gameOver) return;
-        if(cursors.left.isDown){
+
+        if(cursors.left.isDown ){
           player.setVelocityX(-160);
           player.anims.play('left', true);
           player.setFlipX(true);
@@ -124,15 +158,56 @@
           player.setVelocityX(0);
           // player.anims.play('turn', true);
         }
-
-        if(cursors.up.isDown && player.body.touching.down){
+        if( cursors.up.isDown && player.body.touching.down){
           player.setVelocityY(-330);
         }
+
+        if(wasd.left.isDown){
+          player2.setVelocityX(-160);
+          player2.anims.play('left', true);
+          player2.setFlipX(true);
+        }else if( wasd.right.isDown){
+          player2.setVelocityX(160);
+          player2.anims.play('right', true);
+          player2.setFlipX(false);
+        }else{
+          player2.setVelocityX(0);
+          // player.anims.play('turn', true);
+        }
+        if( wasd.up.isDown && player2.body.touching.down){
+          player2.setVelocityY(-330);
+        }
+
+        this.moveBots();
+
+
+      }
+      moveBots (){
+        function getRandomColor() {
+          const randomColor = Math.floor(Math.random() * 0xFFFFFF);  
+          return `0x${randomColor.toString(16).padStart(6, '0').toUpperCase()}`;  
+        }
+
+        bots.getChildren().forEach (bot => {
+          bot.setVelocityX(160); 
+          bot.anims.play('right', true);
+          if (bot.x>950){
+            bot.setX(10); 
+          }
+          if (Phaser.Math.Between(0,1000)>992){
+            bot.setVelocityY(-330);
+          }
+          if (Phaser.Math.Between(0,100)>98){
+            bot.setTint(getRandomColor());
+          }
+
+         }
+        )
       }
       collectStar(player, star) {
         star.disableBody(true, true);
         score += 10;
-        scoreText.setText(`Score: ${score}`);
+        scoreText.setText(`Score: ${score} | Life: ${lifeCount}`);
 
         if(stars.countActive(true) === 0){
           stars.children.iterate(child => {
@@ -148,17 +223,22 @@
         }
       }
       hitBomb(player, bomb) {
-        this.physics.pause();
-        player.setTint(0xff0000);
-        player.anims.play('turn');
-        gameOver = true;
+        lifeCount--;
+        scoreText.setText(`Score: ${score} | Life: ${lifeCount}`);
+
+        // this.physics.pause();
+        // player.setTint(0xff0000);
+        // player.anims.play('turn');
+        // gameOver = true;
       }
     }
 
+
+
     let config = {
       type: Phaser.AUTO,
-      width: 800,
-      height: 600,
+      width: 1024,
+      height: 800,
       scene: new GameScene(),
       physics: {
         default: 'arcade',
