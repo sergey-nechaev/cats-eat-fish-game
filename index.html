@@ -19,12 +19,19 @@
     let bombs;
     let gameOver = false;
     let platforms=[];
+    let sounds=[];
 
     class GameScene extends Phaser.Scene {
       preload() {
-        this.load.image('sky', 'assets/sky2.png');
+        this.load.audio('meow', 'assets/sound/meow.mp3');
+        this.load.audio('bite', 'assets/sound/bite.mp3');
+        this.load.audio('ding', 'assets/sound/ding.mp3');
+        this.load.audio('jump', 'assets/sound/jump.mp3');
+
+        this.load.audio('backgroundMusic', 'assets/background-music.mp3');
+        
+        this.load.image('sky', 'assets/bg.webp');
         this.load.image('ground', 'assets/platform.png');
-        this.load.image('star', 'assets/fish.png');
         this.load.image('bomb', 'assets/bomb.png');
 
         this.load.image('terrainTile', 'assets/tile1.png'); 
@@ -34,8 +41,16 @@
         });
 
         this.load.spritesheet('catWalk', 'assets/cat-walk.png', {
-            frameWidth: 61,
-            frameHeight: 50
+            frameWidth: 36,
+            frameHeight: 36,
+            margin: 14,
+            spacing: 28  
+        });
+        this.load.spritesheet('botWalk', 'assets/bot-cats.png', {
+            frameWidth: 36,
+            frameHeight: 40,
+            margin: 2,
+            spacing: 13
         });
       }
       createPlatform(x, y, width, height) {
@@ -60,18 +75,34 @@
         });
 
       }
-      addBots() {
-        bots = this.physics.add.group();
-
-        let bot = bots.create(500, 450, 'catWalk');
+      addBot(x, y) {
+        const bot = bots.create(x, y, 'botWalk');
         bot.setBounce(0.2);
         bot.setCollideWorldBounds(true);
-        bot.setTint(0x00FF00);
+        // bot.setTint(0x00FF00);
 
         this.physics.add.overlap(bot, stars, this.collectStar, null, this);
       }
+      addBots() {
+        bots = this.physics.add.group();
+        this.addBot(200, 450);
+        this.addBot(300, 450);
+        this.addBot(400, 450);
+
+      }
 
       create() {
+        this.music = this.sound.add('backgroundMusic', {
+          loop: true,
+          volume: 0.1
+        });
+        this.music.play();
+
+        sounds['meow'] = this.sound.add('meow');
+        sounds['bite'] = this.sound.add('bite');
+        sounds['ding'] = this.sound.add('ding');
+        sounds['jump'] = this.sound.add('jump');
+
         this.add.image(0, 0, 'sky').setOrigin(0,0);
 
         player = this.physics.add.sprite(100, 450, 'catWalk');
@@ -82,6 +113,9 @@
         player2 = this.physics.add.sprite(10, 450, 'catWalk');
         player2.setBounce(0.2);
         player2.setCollideWorldBounds(true);
+
+          
+        this.physics.add.overlap(player, player2, ()=>{sounds['meow'].play({volume: 0.5})});
 
         this.anims.create({
           key: 'left',
@@ -100,6 +134,12 @@
           frameRate: 10,
           repeat: -1,
         });
+        this.anims.create({
+          key: 'bot-right',
+          frames: this.anims.generateFrameNumbers('botWalk', {start: 22, end: 24}),
+          frameRate: 10,
+          repeat: -1,
+        });
         
 
         // Keyboard handling object
@@ -115,7 +155,7 @@
         stars = this.physics.add.group({
           key: 'fishes',
           repeat: 5,
-          setXY: {x: 12, y: 0, stepX: 100},
+          setXY: {x: 12, y: 0, stepX: 150},
         });
    
         stars.children.iterate((child) => {
@@ -160,6 +200,7 @@
         }
         if( cursors.up.isDown && player.body.touching.down){
           player.setVelocityY(-330);
+          sounds['jump'].play({volume: 0.1});
         }
 
         if(wasd.left.isDown){
@@ -176,6 +217,7 @@
         }
         if( wasd.up.isDown && player2.body.touching.down){
           player2.setVelocityY(-330);
+          sounds['jump'].play({volume: 0.1});
         }
 
         this.moveBots();
@@ -190,7 +232,7 @@
 
         bots.getChildren().forEach (bot => {
           bot.setVelocityX(160); 
-          bot.anims.play('right', true);
+          bot.anims.play('bot-right', true);
           if (bot.x>950){
             bot.setX(10); 
           }
@@ -198,13 +240,15 @@
             bot.setVelocityY(-330);
           }
           if (Phaser.Math.Between(0,100)>98){
-            bot.setTint(getRandomColor());
+            // bot.setTint(getRandomColor());
           }
 
          }
         )
       }
       collectStar(player, star) {
+        sounds['bite'].play();
+
         star.disableBody(true, true);
         score += 10;
         scoreText.setText(`Score: ${score} | Life: ${lifeCount}`);
@@ -225,6 +269,7 @@
       hitBomb(player, bomb) {
         lifeCount--;
         scoreText.setText(`Score: ${score} | Life: ${lifeCount}`);
+        sounds['ding'].play({volume: 0.3});
 
         // this.physics.pause();
         // player.setTint(0xff0000);
