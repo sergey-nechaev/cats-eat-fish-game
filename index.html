@@ -61,7 +61,7 @@
       }
       addPlatforms(){
         
-        this.createPlatform(0, 750, 1024, 40);
+        this.createPlatform(0, 750, 1024, 60);
         this.createPlatform(100, 300, 200, 40);
         this.createPlatform(500, 450, 200, 40);
         this.createPlatform(300, 600, 200, 40);
@@ -221,15 +221,12 @@
         }
 
         this.moveBots();
+        this.processBombs();
 
 
       }
       moveBots (){
-        function getRandomColor() {
-          const randomColor = Math.floor(Math.random() * 0xFFFFFF);  
-          return `0x${randomColor.toString(16).padStart(6, '0').toUpperCase()}`;  
-        }
-
+       
         bots.getChildren().forEach (bot => {
           bot.setVelocityX(160); 
           bot.anims.play('bot-right', true);
@@ -264,7 +261,30 @@
           bomb.setBounce(1);
           bomb.setCollideWorldBounds(true);
           bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+
+
+          const lifetime = 10000; 
+          const warningTime = 3000; 
+
+          this.time.delayedCall(lifetime - warningTime, () => {
+              this.tweens.add({
+                  targets: bomb,               // Цель анимации
+                  alpha: { from: 1, to: 0 },  // Прозрачность от 1 до 0
+                  duration: 200,              // Длительность одного мигания
+                  yoyo: true,                 // Возврат к исходному состоянию
+                  repeat: -1,                 // Бесконечное повторение
+              });
+          });
+
+          this.time.delayedCall(lifetime, () => {
+              bomb.destroy(); // Удаление бомбы
+          });
+
+
         }
+      }
+      processBombs(){
+//.........
       }
       hitBomb(player, bomb) {
         lifeCount--;
@@ -296,4 +316,8 @@
     }
     let game = new Phaser.Game(config);
   </script>
+  <h1>МОКЗЯ КОТЯ</h1>
+  <p>
+    Управление: WASD, стрелки.
+  </p>  
 </body>
